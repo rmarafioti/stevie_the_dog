@@ -31,6 +31,10 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
+  position: absolute;
+  top: 300;
+  left: 140;
+
 }
 
 .intro h1 {
@@ -40,7 +44,7 @@
   line-height: 48px;
   letter-spacing: -2.4px;
   text-wrap: balance;
-  color: var(--text-primary);
+  color: var(--background);
 }
 
 .intro p {
@@ -48,7 +52,13 @@
   font-size: 18px;
   line-height: 32px;
   text-wrap: balance;
-  color: var(--text-secondary);
+  color: var(--background);
+}
+
+.heroPhoto {
+  position: relative;
+  width: 100vw;
+  height: auto;
 }
 
 @media (max-width: 600px) {
@@ -58,12 +68,18 @@
 
   .intro {
     gap: 16px;
+    position: initial;
   }
 
   .intro h1 {
     font-size: 32px;
     line-height: 40px;
     letter-spacing: -1.92px;
+    color: var(--text-primary);
+  }
+
+  .intro p {
+    color: var(--text-primary);
   }
 }
 
