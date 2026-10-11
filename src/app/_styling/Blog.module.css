@@ -1,0 +1,21 @@
+/* Blog styles: structural and functional only. Visual styling is left to the site's designer. */
+.blog {
+  display: flex;
+  flex-direction: column;
+}
+
+.post {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Keeps the line breaks the site owner typed in a paragraph. */
+.paragraph {
+  white-space: pre-line;
+}
+
+/* CMS images arrive at full size; keep them inside their container. */
+.image {
+  max-width: 100%;
+  height: auto;
+}
