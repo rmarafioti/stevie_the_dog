@@ -1,5 +1,5 @@
 // The only place this website calls the Headless CMS. Server-only: the API key never reaches the
-// browser. Every request is tagged 'cms', so /api/revalidate can expire all CMS data at once.
+// browser. Every request is tagged "cms", so /api/revalidate can expire all CMS data at once.
 import "server-only";
 
 export async function cmsFetch(path, { tag, empty }) {

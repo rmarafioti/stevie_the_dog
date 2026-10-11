@@ -31,7 +31,7 @@ Fill this in when the file is copied into a new client repo.
 - Framework: Next.js (current stable, App Router) / JavaScript
 - Rendering: static. Server Components by default; CMS content is fetched at build/regeneration time.
 - CMS data: one server-only `cmsFetch()` plus a `getX()` function per resource, and `src/app/api/revalidate/route.js` for on-demand revalidation
-- Images: `next/image`. CMS images come from Cloudinary; the site's own images live in `public/`.
+- Images: `next/image`. CMS images come from Cloudinary; the site's own images live in `public/` or on Cloudinary.
 - Testing: Vitest
 - Hosting: Vercel
 
@@ -41,35 +41,36 @@ Fill this in when the file is copied into a new client repo.
 root
 ├── src/
 │   ├── test/
-│   │   ├── setup.js              *test setup: server-only stub; the HEADLESS_CMS_* vars cleared before each test so .env.local never leaks in
+│   │   ├── setup.js              *stubs server-only; sets the HEADLESS_CMS_* vars to undefined before each test
 │   │   └── helpers.js            *mockFetch (the only fake network) and other edge helpers
 │   └── app/
-│       ├── _data/
-│       │   └── photos.js         *the site's own (non-CMS) photos, hosted on Cloudinary
 │       ├── _components/          *all one-time and reusable components
-│       │   └── Blog.jsx          *Server Component: calls getPosts() and renders the posts (below the hero on /)
+│       │   └── Blog.jsx          *Server Component: calls getPosts() and renders the posts below the hero on / (posts render through this component, so there is no posts route)
+│       ├── _data/                *optional: the site's own (non-CMS) data
+│       │   └── photos.js         *the site's own photos, hosted on Cloudinary
 │       ├── _hooks/               *client-only UI hooks (e.g. a menu toggle), never CMS data
 │       ├── _layout/              *Navbar.jsx and Footer.jsx
 │       ├── _lib/
 │       │   ├── cmsFetch.js       *the only place the CMS API is called (server-only)
-│       │   └── getPosts.js       *posts: cmsFetch('/api/public/posts', …)
+│       │   └── getPosts.js       *posts: cmsFetch("/api/public/posts", …)
 │       ├── _styling/             *all module.css files (page.module.css, Blog.module.css)
 │       ├── api/
 │       │   └── revalidate/
-│       │       └── route.js      *POST only: checks the webhook secret, expires the 'cms' tag
+│       │       └── route.js      *POST only: checks the webhook secret, expires the "cms" tag
 │       ├── globals.css           *global styling
 │       ├── layout.js             *root layout (Navbar, Footer, site-wide metadata)
 │       └── page.js               *home page (hero, intro, Blog)
-├── public/                       *the site's own static images and files
+├── public/                       *the site's own static files and images (or host its images on Cloudinary)
 ├── docs/
 │   └── client-website.md         *the CMS integration guide (copied from the master doc, never edited here)
-├── .env.example                  *the three HEADLESS_CMS_* names, empty values (excepted from the .env* rule in .gitignore)
-├── .prettierignore               *keeps Prettier off docs/client-website.md
+├── .env.example                  *the three HEADLESS_CMS_* names, empty values
+├── .gitignore                    *create-next-app's, plus !.env.example so the example is committed
+├── .prettierignore               *docs/client-website.md, so npm run format never edits the guide
 ├── .prettierrc                   *Prettier defaults ({})
 ├── eslint.config.mjs             *ESLint (Next.js config), run with npm run lint
 ├── jsconfig.json                 *the `@/*` → `src/*` import alias
 ├── next.config.mjs               *images.remotePatterns for res.cloudinary.com
-├── vitest.config.mjs             *test config: node environment, setup file, the `@/` alias (Vitest doesn't read jsconfig.json), mocks/env/globals reset per test
+├── vitest.config.mjs             *node environment, @ → src alias, setup file, mocks and stubs reset per test
 ├── AGENTS.md                     *Next.js agent notes, written and re-added by `next dev`
 ├── CLAUDE.md                     *project context, loaded automatically every session
 └── README.md                     *human-facing overview and local setup
@@ -83,7 +84,17 @@ root
 
 - It is a copy of the "Client to Website" tab in Rich's master doc. The CMS backend repo is the source of truth for it. **Never edit it in this repo.** If it looks wrong or out of date, tell Rich. The fix is made on the CMS side and the file is copied in again.
 - Before writing or changing any caching code, check the installed Next.js version as the guide's "Check the installed Next.js version" section says. Read `AGENTS.md` and the docs bundled in `node_modules/next/dist/docs/`, not memory. Next.js APIs change between versions.
-- Last checked on Next.js 16.3.4: `revalidateTag('cms', { expire: 0 })` is the documented call for a webhook. A `fetch` that sends an `Authorization` header is not cached unless it has an explicit cache setting; `next.revalidate` counts as one (`node_modules/next/dist/server/lib/patch-fetch.js`), so `cmsFetch` caches as written. Never remove `revalidate: 3600` without replacing it. Confirmed by `next build`: `/` is `○` with a `1h` revalidate.
+- Last checked on Next.js 16.3.4: `revalidateTag("cms", { expire: 0 })` is the documented call for a webhook. A `fetch` that sends an `Authorization` header is not cached unless it has an explicit cache setting; `next.revalidate` counts as one (`node_modules/next/dist/server/lib/patch-fetch.js`), so `cmsFetch` caches as written. Never remove `revalidate: 3600` without replacing it. Confirmed by `next build`: `/` is `○` with a `1h` revalidate.
+
+## Project Setup
+
+Set up once when the repo is created, then kept:
+
+- **`.gitignore`:** create-next-app ignores `.env*`, which also hides `.env.example`. Add `!.env.example` so it is committed.
+- **`.prettierignore`:** list `docs/client-website.md`, so `npm run format` never edits the guide.
+- **`vitest.config.mjs`:** the node environment, the setup file, `resolve.alias` for `@` → `src` (Vitest doesn't read the `jsconfig.json` paths), and `mockReset`, `unstubEnvs` and `unstubGlobals` set to `true`.
+- **`src/test/setup.js`:** stubs `server-only`, and sets the three `HEADLESS_CMS_*` vars to `undefined` in a `beforeEach`, so a real key or secret can never reach a test.
+- **npm warning:** npm 11 may warn that `unrs-resolver` (from `eslint-config-next`) has an unapproved postinstall script. It's harmless: the platform binary installs as an optional dependency and lint runs fine.
 
 ## Anti-Patterns to Avoid
 
@@ -97,7 +108,7 @@ root
 No `useEffect` or client-side hook that calls the CMS. `cmsFetch()` imports `server-only`, and only Server Components call the `getX()` functions. A browser fetch would expose the key and render the content after the page loads, which hurts SEO.
 
 **A page that renders CMS content must never quietly become dynamic:**
-Fast static pages and SEO are why this site exists. Don't use `cookies()`, `headers()`, `searchParams`, `cache: 'no-store'` or `dynamic = 'force-dynamic'` on any page that renders CMS content. After any change to one, confirm in the `next build` output that the page is still `○` or `●`, not `ƒ`.
+Fast static pages and SEO are why this site exists. Don't use `cookies()`, `headers()`, `searchParams`, `cache: "no-store"` or `dynamic = "force-dynamic"` on any page that renders CMS content. After any change to one, confirm in the `next build` output that the page is still `○` or `●`, not `ƒ`.
 
 **Never render CMS text as HTML:**
 CMS text (a paragraph's `text`, for example) is plain text. Render it as a React text node, never with `dangerouslySetInnerHTML`. Post paragraphs use `white-space: pre-line` so line breaks show.
@@ -115,7 +126,7 @@ The CMS calls the exact URL it has stored. A `www` ↔ bare-domain redirect drop
 Check the secret, expire the `cms` tag, respond. No other work, no logging of the request.
 
 **Never make aesthetic styling decisions:**
-No CSS frameworks, no component libraries, no color, font or spacing choices. Styling is owned entirely by Rich. The agent's only layout job is basic structural formatting (flexbox only) to keep content readable. The required styles are functional only: `white-space: pre-line` on post paragraphs, and `max-width: 100%; height: auto` on CMS images, which arrive at their full pixel size and would otherwise overflow a phone screen.
+No CSS frameworks, no component libraries, no color, font or spacing choices. Styling is owned entirely by Rich. The agent's only layout job is basic structural formatting (flexbox only) to keep content readable. The two required styles are functional: `white-space: pre-line` on post paragraphs, so line breaks show, and `max-width: 100%; height: auto` on CMS images, so a large photo never overflows its container.
 
 ## Patterns and Preferences
 
@@ -124,14 +135,14 @@ No CSS frameworks, no component libraries, no color, font or spacing choices. St
 
 - returns `empty` when `HEADLESS_CMS_API_URL` is unset, so the site still builds before it is wired up
 - sends `GET {HEADLESS_CMS_API_URL}{path}` with `Authorization: Bearer <HEADLESS_CMS_API_KEY>`
-- caches with `next: { tags: ['cms', tag], revalidate: 3600 }`: the shared `cms` tag lets the revalidate route expire every resource at once, and `revalidate: 3600` is the hourly fallback
+- caches with `next: { tags: ["cms", tag], revalidate: 3600 }`: the shared `cms` tag lets the revalidate route expire every resource at once, and `revalidate: 3600` is the hourly fallback. Keep `revalidate` on every CMS fetch: the request sends an `Authorization` header, and Next.js 16 only caches such a request when it has an explicit cache setting
 - throws on a non-2xx response, so a failed regeneration keeps the last good page
 - returns the unwrapped `data`
 
 Each CMS resource gets its own function in `_lib/`, named `getX` (`getPosts` today), which calls `cmsFetch` with its path, its own tag and its empty value (`[]` for a list). These play the role per-resource hooks play in a client app, but run only in Server Components. A new `getX` (`getHours`, `getPhotoGallery`) is added only once the CMS serves that data and `docs/client-website.md` specs it. Adding one is a new `getX` file, its rendering per the guide, its test, and a row in Site Details.
 
 **Where CMS content renders is decided per client:**
-Each client site chooses where its CMS content appears: a route of its own (`/news`, `/blog`) or a component embedded in an existing page. Nothing in the integration code assumes a location: `getX()` can be called from any Server Component. The choice is recorded in Site Details (CMS content used) and the architecture tree, never hardcoded into shared code or the guide. On this site, posts render in `_components/Blog.jsx`, embedded in the home page (`/`) below the hero photo. There is no posts route.
+On its own route (`src/app/news/page.js`) or inside an existing page through a component in `_components/` (for example `Blog.jsx` below the hero on `/`). Either way it is a Server Component that calls `getX()`, and the page builds static. Record the choice in Site Details. On this site, posts render through `_components/Blog.jsx`, embedded in the home page (`/`) below the hero photo; there is no posts route.
 
 **How this site renders posts (`Blog.jsx`):**
 
@@ -148,7 +159,10 @@ Hooks there handle browser interaction (a menu toggle, for example) and never fe
 Add `"use client"` only to a small interactive island, never to a page or to anything that renders CMS content. No Context or state library unless more than one component actually needs the value.
 
 **Every image goes through `next/image`:**
-CMS images use the `src`, `width`, `height` and `altText` the CMS sends (`alt={altText}`). The site's own images in `public/` also carry real `width`, `height` and `alt`.
+CMS images use the `src`, `width`, `height` and `altText` the CMS sends (`alt={altText}`), styled `max-width: 100%; height: auto`. The site's own images live in `public/` or on Cloudinary, and also carry real `width`, `height` and `alt`.
+
+**The site's own data:**
+Data the site uses that isn't CMS content (a list of its own photos, for example) can live in an optional `_data/` folder (`_data/photos.js`).
 
 **Every page has metadata:**
 Each page exports `metadata` with at least a `title` and `description`, since search is the reason the site is static.
@@ -178,6 +192,7 @@ Formatting is Prettier with default settings (`.prettierrc`), run before every c
 - **Functions:** function declarations for components, hooks and helpers. Arrows only inline (callbacks, `.map`).
 - **Naming:** CMS fetchers are `getX`. Booleans read as questions (`hasPosts`). Use the vocabulary of `docs/client-website.md` (post, body, paragraph, image, link), not synonyms.
 - **Control flow:** early returns over nested `if`/`else`. No nested ternaries in JSX.
+- **Quotes:** Prettier's defaults (double quotes). The guide's snippets already use them, so a copied snippet doesn't change on `npm run format`.
 
 ## Code Review
 
@@ -192,7 +207,7 @@ A review is read-only. It produces findings; it never edits code. Fixes are thei
 5. **Docs match code:** the architecture tree, Site Details, Progress line, `README.md` and `.env.example` describe what is in the repo.
 6. **The integration still matches `docs/client-website.md`:** run its "Done when" list against the code.
 7. **The Anti-Patterns still hold:** `cmsFetch` only, secrets server-only, no browser fetch, static CMS pages, no HTML injection, no empty fields, no hardcoded content, no aesthetic styling.
-8. **Every CMS state renders:** nothing returned, optional fields empty, and each content case the guide lists (for posts: paragraphs only, paragraphs and images interleaved, links).
+8. **Every CMS state renders:** nothing returned, optional fields empty, an unknown body type skipped, and each content case the guide lists (for posts: paragraphs only, paragraphs and images interleaved, links).
 9. **Tooling is clean:** `npm test`, `npm run lint`, `npm run format` (no diff) and `npm run build` pass, with every CMS page static.
 
 ### Output
@@ -207,10 +222,9 @@ Vitest, node environment. `npm test` runs the suite once; `npm run test:watch` w
 
 The CMS boundary, where a mistake breaks the site silently or leaks a secret:
 
-- **`cmsFetch()`:** returns `empty` when `HEADLESS_CMS_API_URL` is unset, without calling `fetch`; sends `GET {url}{path}` with `Authorization: Bearer <key>`; passes `next: { tags: ['cms', tag], revalidate: 3600 }`; returns the unwrapped `data`; throws on a non-2xx response (`401`, `500`).
+- **`cmsFetch()`:** returns `empty` when `HEADLESS_CMS_API_URL` is unset, without calling `fetch`; sends `GET {url}{path}` with `Authorization: Bearer <key>`; passes `next: { tags: ["cms", tag], revalidate: 3600 }`; returns the unwrapped `data`; throws on a non-2xx response (`401`, `500`).
 - **Each `getX()`:** one test of its wiring: the path, its tag and its empty value.
-- **The revalidate route:** `401` with the documented body for a missing header, a wrong secret, and an unset `HEADLESS_CMS_WEBHOOK_SECRET`; `200` and the `cms` tag expired for the right secret.
-  - The unset-secret test sends a full `Bearer <secret>` token, not `Bearer `. `Request` headers trim whitespace, so `Bearer ` arrives as `Bearer` and is rejected on length alone. That test would pass even with the empty-secret guard removed.
+- **The revalidate route:** `401` with the documented body for a missing header, a wrong secret, and an unset `HEADLESS_CMS_WEBHOOK_SECRET`; `200` and the `cms` tag expired for the right secret. For the unset-secret case, send a full `Bearer <secret>`, not `"Bearer "` with nothing after it: header values are trimmed, so it arrives as `"Bearer"` and fails on length alone, and the test would pass even with the guard deleted.
 - **A bug that was fixed:** write the failing test first, then fix the code, so it can't come back.
 
 Don't write a test for: static markup, styling, metadata, a constant, or Next.js behaviour itself. Rendering is checked by hand (see Manual testing).
@@ -233,11 +247,11 @@ Don't write a test for: static markup, styling, metadata, a constant, or Next.js
 
 ### Manual testing
 
-Rendering and the live loop are tested by hand, as the Testing section of `docs/client-website.md` describes: local rendering against the CMS backend on port 4000, a static `next build`, and a wrong-secret `401` on the deployed route. The CMS operator then runs the webhook and live-update tests from the backend repo.
+Rendering and the live loop are tested by hand, as the Testing section of `docs/client-website.md` describes: local rendering against the CMS backend on port 4000, a static `next build`, and a wrong-secret `401` on the deployed route. The CMS operator then runs the webhook and live-update tests from the backend repo. Before the CMS backend is available, a throwaway mock CMS can stand in, as the guide's Testing section describes; it never replaces the test against the real CMS.
 
 Local ports: the CMS dashboard runs on 3000 and the CMS API on 4000, so this site's `npm run dev` and `npm run start` use 3001.
 
-When the backend isn't available, a throwaway mock of `GET /api/public/posts`, run from outside the repo with `HEADLESS_CMS_API_URL` pointed at it, can check rendering, caching (repeat visits make no new request) and revalidation (the next visit after a `200` shows the change). It never replaces the test against the real CMS.
+The mock serves `GET /api/public/posts` from outside the repo, with `HEADLESS_CMS_API_URL` pointed at it. It checks rendering, caching (repeat visits make no new request) and revalidation (the next visit after a `200` shows the change).
 
 Content created in the CMS for testing belongs to the CMS database. List everything a test created (posts, for example) so Rich can have the backend session delete it.
 
@@ -263,7 +277,7 @@ When Rich says to commit, first update the Progress line below to describe the s
 
 ## Progress
 
-CMS integration done and tested locally: `cmsFetch`, `getPosts`, the revalidate route and Vitest (12 tests), with posts rendered by `_components/Blog.jsx` below the hero on `/` (static, 1h fallback). Tested against the local CMS: posts render; a wrong secret returns 401; the right secret returns 200 and the next visit shows the edit. Pending the CMS deploy: set the three env vars on Vercel (leave them unset until then, so the build returns no posts instead of failing), check that a deployed wrong-secret POST returns 401, and have the CMS operator run the live test. Test content: Rich's local post header was edited to "welcome home! (edited)".
+Docs synced with the master guide and template (`docs/client-website.md` byte-identical to the master). CMS integration done and tested locally: `cmsFetch`, `getPosts`, the revalidate route and Vitest (12 tests), with posts rendered by `_components/Blog.jsx` below the hero on `/` (static, 1h fallback). Tested against the local CMS: posts render; a wrong secret returns 401; the right secret returns 200 and the next visit shows the edit. Pending the CMS deploy: set the three env vars on Vercel (leave them unset until then, so the build returns no posts instead of failing), check that a deployed wrong-secret POST returns 401, and have the CMS operator run the live test. Test content: Rich's local post header was edited to "welcome home! (edited)".
 
 ## Plan Authoring
 

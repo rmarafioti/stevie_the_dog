@@ -53,8 +53,8 @@ src/app/_lib/cmsFetch.js:
 
 ```js
 // The only place this website calls the Headless CMS. Server-only: the API key never reaches the
-// browser. Every request is tagged 'cms', so /api/revalidate can expire all CMS data at once.
-import 'server-only';
+// browser. Every request is tagged "cms", so /api/revalidate can expire all CMS data at once.
+import "server-only";
 
 export async function cmsFetch(path, { tag, empty }) {
   // Not wired up yet: render nothing rather than fail the build.
@@ -62,11 +62,14 @@ export async function cmsFetch(path, { tag, empty }) {
 
   const response = await fetch(`${process.env.HEADLESS_CMS_API_URL}${path}`, {
     headers: { Authorization: `Bearer ${process.env.HEADLESS_CMS_API_KEY}` },
-    next: { tags: ['cms', tag], revalidate: 3600 },
+    next: { tags: ["cms", tag], revalidate: 3600 },
   });
 
   // Throw instead of returning empty, so a failed regeneration keeps the last good page.
-  if (!response.ok) throw new Error(`Headless CMS request failed: ${path} HTTP ${response.status}`);
+  if (!response.ok)
+    throw new Error(
+      `Headless CMS request failed: ${path} HTTP ${response.status}`,
+    );
 
   const { data } = await response.json();
   return data;
@@ -77,36 +80,41 @@ src/app/_lib/getPosts.js:
 
 ```js
 // This website's active posts from the Headless CMS, newest first. Server Components only.
-import { cmsFetch } from './cmsFetch';
+import { cmsFetch } from "./cmsFetch";
 
 export function getPosts() {
-  return cmsFetch('/api/public/posts', { tag: 'posts', empty: [] });
+  return cmsFetch("/api/public/posts", { tag: "posts", empty: [] });
 }
 ```
 
-- next.tags: ['cms', tag] gives every request the shared cms tag, which the revalidate route expires, plus its own tag (posts), so a site can later expire one kind of content on its own. The CMS's revalidation call doesn't say what changed, so the route refreshes all CMS data; re-fetching data that didn't change costs almost nothing.
+- next.tags: ["cms", tag] gives every request the shared cms tag, which the revalidate route expires, plus its own tag (posts), so a site can later expire one kind of content on its own. The CMS's revalidation call doesn't say what changed, so the route refreshes all CMS data; re-fetching data that didn't change costs almost nothing.
 - next.revalidate: 3600 is the hourly fallback.
 - empty is what cmsFetch returns before HEADLESS_CMS_API_URL is set: [] for a list such as posts.
 - Install server-only (npm install server-only) so an accidental import from a Client Component fails at build time.
 - Add a new getX function (getHours, for example) only once the CMS serves that data and this guide specs it.
+- The snippets are already formatted with Prettier's defaults (double quotes, 80-character lines), so npm run format leaves a copied snippet unchanged.
 
 ## Rendering posts
 
+- Posts may render on their own route or inside an existing page through a component. Either way, every page that renders posts must build as static.
 - Render posts in the order returned (newest first).
 - Render each post's body in order:
   - **paragraph:** the text in an element styled with white-space: pre-line, so the site owner's line breaks show
-  - **image:** next/image with src, width, height and alt={altText}
+  - **image:** next/image with src, width, height and alt={altText}, styled max-width: 100%; height: auto so a large photo never overflows its container
 - Render header, subHeader, postDate and links only when present. Skip any that are null or empty, never render "null" or an empty heading.
-- Format postDate for display without letting a time zone shift the day. Parse YYYY-MM-DD into its parts, or format it with timeZone: 'UTC'.
+- Render only the documented body types (paragraph, image) and skip any other type, so a type added later never renders as an empty element.
+- Body elements and links have no id. Key them by their index in the list; two links can share a URL, so url isn't a safe key.
+- Recommended heading structure: header as a heading at the level that fits the page, the same level for every post; subHeader as a <p> (a subtitle isn't a heading), grouped with header in an <hgroup> when there is one, or a plain <p> when there isn't; postDate in <time dateTime={postDate}>. The order of these inside a post is the site's choice.
+- Format postDate for display without letting a time zone shift the day. Parse YYYY-MM-DD into its parts, or format it with timeZone: "UTC".
 - Let next/image load Cloudinary images by adding the host to next.config.mjs:
 
 ```
 images: {
-  remotePatterns: [{ protocol: 'https', hostname: 'res.cloudinary.com' }],
+  remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
 },
 ```
 
-- Styling and placement belong to each website. This guide covers data and structure only.
+- Styling and placement belong to each website, apart from the two functional styles above: white-space: pre-line on paragraphs and max-width: 100%; height: auto on images. This guide covers data and structure only.
 - With no posts (an empty array), render nothing, or a short message the site chooses.
 
 ## The revalidate route
@@ -123,12 +131,14 @@ The CMS only logs the result. It never retries, and a failure never blocks the s
 ```js
 // Called by the Headless CMS whenever this website's CMS content changes. Verifies the webhook
 // secret, then expires the cached CMS data so the next visit regenerates with fresh data.
-import { timingSafeEqual } from 'node:crypto';
-import { revalidateTag } from 'next/cache';
+import { timingSafeEqual } from "node:crypto";
+import { revalidateTag } from "next/cache";
 
 function hasValidSecret(request) {
-  const expected = Buffer.from(`Bearer ${process.env.HEADLESS_CMS_WEBHOOK_SECRET ?? ''}`);
-  const received = Buffer.from(request.headers.get('authorization') ?? '');
+  const expected = Buffer.from(
+    `Bearer ${process.env.HEADLESS_CMS_WEBHOOK_SECRET ?? ""}`,
+  );
+  const received = Buffer.from(request.headers.get("authorization") ?? "");
   return (
     Boolean(process.env.HEADLESS_CMS_WEBHOOK_SECRET) &&
     received.length === expected.length &&
@@ -138,10 +148,13 @@ function hasValidSecret(request) {
 
 export async function POST(request) {
   if (!hasValidSecret(request)) {
-    return Response.json({ error: { message: 'Unauthorized.' } }, { status: 401 });
+    return Response.json(
+      { error: { message: "Unauthorized." } },
+      { status: 401 },
+    );
   }
 
-  revalidateTag('cms', { expire: 0 });
+  revalidateTag("cms", { expire: 0 });
   return Response.json({ data: { revalidated: true } });
 }
 ```
@@ -157,20 +170,22 @@ export async function POST(request) {
 
 The caching APIs changed between Next.js versions. Before writing the code, check the installed next package (node_modules/next/package.json, and the docs it bundles in node_modules/next/dist/docs/ where present):
 
-- **Next.js 16:** revalidateTag(tag, profile) takes two arguments. { expire: 0 } makes the next visit fetch fresh posts. The recommended 'max' profile would serve one stale visit first, then update in the background. Prefer { expire: 0 }, since a site owner checks the change right after saving.
-- **Earlier versions:** revalidateTag('cms') takes one argument and expires immediately.
-- Confirm that fetch with next: { tags, revalidate } still caches in the installed version, and that the page using getPosts() builds as static (○ or ● in the next build output, not ƒ).
+- **Next.js 16:** revalidateTag(tag, profile) takes two arguments. { expire: 0 } makes the next visit fetch fresh posts. The recommended "max" profile would serve one stale visit first, then update in the background. Prefer { expire: 0 }, since a site owner checks the change right after saving.
+- **Earlier versions:** revalidateTag("cms") takes one argument and expires immediately.
+- Confirm that fetch with next: { tags, revalidate } still caches in the installed version, and that every page using getPosts() builds as static (○ or ● in the next build output, not ƒ).
+- Keep next.revalidate on every CMS fetch. In Next.js 16, a fetch that sends an Authorization header and has no explicit cache setting is not cached; next.revalidate is the setting that makes the cmsFetch request cacheable.
 
 ## Testing
-
 1. **Local rendering:**
    - Run the CMS backend locally (port 4000).
    - Set HEADLESS_CMS_API_URL=http://localhost:4000 and the API key in .env.local, then run this site.
    - Create posts in the CMS dashboard and check that they render. Cover paragraphs only, paragraphs and images interleaved, line breaks, links, empty optional fields, and an archived post, which must not appear.
-2. **Static build:** run next build and confirm the posts page is static, then next start and confirm it still shows the posts.
+2. **Static build:** run next build and confirm every page that renders posts is static, then next start and confirm it still shows the posts.
 3. **Deployed:** deploy with all three env vars set.
    - A POST /api/revalidate with a wrong secret returns 401.
    - The CMS operator then runs the webhook and live-update tests from their side (their docs/client-website-test.md).
+
+Before the CMS backend is available, a throwaway mock of GET /api/public/posts (kept outside the repo, with HEADLESS_CMS_API_URL pointed at it) can check rendering, caching and revalidation. It never replaces the test against the real CMS.
 
 ## Done when
 
@@ -178,7 +193,7 @@ The caching APIs changed between Next.js versions. Before writing the code, chec
 - Posts render newest first; each body renders in order; paragraphs keep line breaks; images use next/image; empty optional fields don't render
 - /api/revalidate accepts only POST, checks the secret with timingSafeEqual, returns 401 on a bad secret, and expires the cms tag
 - npm test passes: cmsFetch(), each getX() and the revalidate route are tested (the Unit Tests section of CLAUDE.md)
-- The posts page builds as static
+- Every page that renders posts builds as static
 - The three env vars are set in .env.local and on Vercel, none are NEXT_PUBLIC_, and none are committed
 - The website's stored URL serves the site directly, with no redirect
 - The CMS operator's live test passes: creating, editing, archiving and reactivating a post each show on the live site within moments
