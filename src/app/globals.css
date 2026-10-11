@@ -1,3 +1,4 @@
+/* Global styles: colour variables, a CSS reset and base body styles for every page. */
 :root {
   --background: #ffffff;
   --foreground: #171717;

@@ -1,13 +1,9 @@
+/* Home page styles: the hero photo and the intro text over it. */
 .page {
   --background: #fafafa;
   --foreground: #fff;
 
   --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
 
   display: flex;
   flex-direction: column;
@@ -32,9 +28,8 @@
   align-items: flex-start;
   text-align: left;
   position: absolute;
-  top: 300;
-  left: 140;
-
+  top: 300px;
+  left: 140px;
 }
 
 .intro h1 {
@@ -84,16 +79,10 @@
 }
 
 @media (prefers-color-scheme: dark) {
-
   .page {
     --background: #000;
     --foreground: #000;
 
     --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
   }
 }

@@ -1,3 +1,4 @@
+// Next.js config.
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* allows access to remote files in cloudinary*/

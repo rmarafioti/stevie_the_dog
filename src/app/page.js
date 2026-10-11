@@ -1,8 +1,8 @@
-import { heroPhoto } from "./_data/photos";
-
+// The home page: Stevie's hero photo with the site's intro text over it.
 import Image from "next/image";
 
-import styles from "./page.module.css";
+import { heroPhoto } from "./_data/photos";
+import styles from "./_styling/page.module.css";
 
 export default function Home() {
   return (
