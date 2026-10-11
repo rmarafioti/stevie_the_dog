@@ -20,11 +20,11 @@ Fill this in when the file is copied into a new client repo.
 
 | Detail           | Value                                                                        |
 | ---------------- | ---------------------------------------------------------------------------- |
-| Website name     | Stevie the Dog                                                               |
+| Website name     | Stevie The Dog                                                               |
 | Production URL   | `https://www.steviethedog.com`: the exact URL stored in the CMS, no redirect |
 | Vercel project   | stevie_the_dog                                                               |
-| CMS content used | Not wired up yet                                                             |
-| Pages            | `/`: home page (hero photo and intro)                                        |
+| CMS content used | posts → `_components/Blog.jsx`, below the hero on `/`                        |
+| Pages            | `/`: home page (hero photo, intro and the blog)                              |
 
 ## Tech Stack Summary
 
@@ -41,26 +41,25 @@ Fill this in when the file is copied into a new client repo.
 root
 ├── src/
 │   ├── test/
-│   │   ├── setup.js              *test setup (server-only stub, env reset)
+│   │   ├── setup.js              *test setup: server-only stub; the HEADLESS_CMS_* vars cleared before each test so .env.local never leaks in
 │   │   └── helpers.js            *mockFetch (the only fake network) and other edge helpers
 │   └── app/
 │       ├── _data/
 │       │   └── photos.js         *the site's own (non-CMS) photos, hosted on Cloudinary
-│       ├── _components/          *all one-time and reusable components, e.g. PostList.jsx, PostBody.jsx
+│       ├── _components/          *all one-time and reusable components
+│       │   └── Blog.jsx          *Server Component: calls getPosts() and renders the posts (below the hero on /)
 │       ├── _hooks/               *client-only UI hooks (e.g. a menu toggle), never CMS data
 │       ├── _layout/              *Navbar.jsx and Footer.jsx
 │       ├── _lib/
 │       │   ├── cmsFetch.js       *the only place the CMS API is called (server-only)
 │       │   └── getPosts.js       *posts: cmsFetch('/api/public/posts', …)
-│       ├── _styling/             *all module.css files
+│       ├── _styling/             *all module.css files (page.module.css, Blog.module.css)
 │       ├── api/
 │       │   └── revalidate/
 │       │       └── route.js      *POST only: checks the webhook secret, expires the 'cms' tag
-│       ├── {{posts route}}/
-│       │   └── page.js           *Server Component: calls getPosts() and renders the posts
 │       ├── globals.css           *global styling
 │       ├── layout.js             *root layout (Navbar, Footer, site-wide metadata)
-│       └── page.js               *home page
+│       └── page.js               *home page (hero, intro, Blog)
 ├── public/                       *the site's own static images and files
 ├── docs/
 │   └── client-website.md         *the CMS integration guide (copied from the master doc, never edited here)
@@ -70,7 +69,7 @@ root
 ├── eslint.config.mjs             *ESLint (Next.js config), run with npm run lint
 ├── jsconfig.json                 *the `@/*` → `src/*` import alias
 ├── next.config.mjs               *images.remotePatterns for res.cloudinary.com
-├── vitest.config.mjs             *test config (node environment, setup file, mocks reset per test)
+├── vitest.config.mjs             *test config: node environment, setup file, the `@/` alias (Vitest doesn't read jsconfig.json), mocks/env/globals reset per test
 ├── AGENTS.md                     *Next.js agent notes, written and re-added by `next dev`
 ├── CLAUDE.md                     *project context, loaded automatically every session
 └── README.md                     *human-facing overview and local setup
@@ -84,6 +83,7 @@ root
 
 - It is a copy of the "Client to Website" tab in Rich's master doc. The CMS backend repo is the source of truth for it. **Never edit it in this repo.** If it looks wrong or out of date, tell Rich. The fix is made on the CMS side and the file is copied in again.
 - Before writing or changing any caching code, check the installed Next.js version as the guide's "Check the installed Next.js version" section says. Read `AGENTS.md` and the docs bundled in `node_modules/next/dist/docs/`, not memory. Next.js APIs change between versions.
+- Last checked on Next.js 16.3.4: `revalidateTag('cms', { expire: 0 })` is the documented call for a webhook. A `fetch` that sends an `Authorization` header is not cached unless it has an explicit cache setting; `next.revalidate` counts as one (`node_modules/next/dist/server/lib/patch-fetch.js`), so `cmsFetch` caches as written. Never remove `revalidate: 3600` without replacing it. Confirmed by `next build`: `/` is `○` with a `1h` revalidate.
 
 ## Anti-Patterns to Avoid
 
@@ -115,7 +115,7 @@ The CMS calls the exact URL it has stored. A `www` ↔ bare-domain redirect drop
 Check the secret, expire the `cms` tag, respond. No other work, no logging of the request.
 
 **Never make aesthetic styling decisions:**
-No CSS frameworks, no component libraries, no color, font or spacing choices. Styling is owned entirely by Rich. The agent's only layout job is basic structural formatting (flexbox only) to keep content readable. The one required style is functional: `white-space: pre-line` on post paragraphs.
+No CSS frameworks, no component libraries, no color, font or spacing choices. Styling is owned entirely by Rich. The agent's only layout job is basic structural formatting (flexbox only) to keep content readable. The required styles are functional only: `white-space: pre-line` on post paragraphs, and `max-width: 100%; height: auto` on CMS images, which arrive at their full pixel size and would otherwise overflow a phone screen.
 
 ## Patterns and Preferences
 
@@ -129,6 +129,17 @@ No CSS frameworks, no component libraries, no color, font or spacing choices. St
 - returns the unwrapped `data`
 
 Each CMS resource gets its own function in `_lib/`, named `getX` (`getPosts` today), which calls `cmsFetch` with its path, its own tag and its empty value (`[]` for a list). These play the role per-resource hooks play in a client app, but run only in Server Components. A new `getX` (`getHours`, `getPhotoGallery`) is added only once the CMS serves that data and `docs/client-website.md` specs it. Adding one is a new `getX` file, its rendering per the guide, its test, and a row in Site Details.
+
+**Where CMS content renders is decided per client:**
+Each client site chooses where its CMS content appears: a route of its own (`/news`, `/blog`) or a component embedded in an existing page. Nothing in the integration code assumes a location: `getX()` can be called from any Server Component. The choice is recorded in Site Details (CMS content used) and the architecture tree, never hardcoded into shared code or the guide. On this site, posts render in `_components/Blog.jsx`, embedded in the home page (`/`) below the hero photo. There is no posts route.
+
+**How this site renders posts (`Blog.jsx`):**
+
+- No posts → `null`, so nothing is rendered.
+- `<section>` → `<h2>Stevie's Blog</h2>` (site copy, not CMS content) → one `<article>` per post, newest first.
+- `header` is an `<h3>`. Every post uses the same level; that is correct, and lets screen-reader users jump from post to post. `subHeader` is a subtitle, not a section heading, so it is a `<p>`. With a header, the two sit in an `<hgroup>`. Without one, the subtitle is a plain `<p>`, because an `<hgroup>` must contain a heading.
+- `postDate` comes first in each post, before the header and subheader. It is a `<time dateTime>`, shown as "Oct 11, 2026". It is built and formatted in UTC so the day never shifts.
+- `body` renders in order. Only `paragraph` and `image` items are rendered; any other type is skipped. Body items and links have no id, so they are keyed by index (two links may share a URL).
 
 **`_hooks/` is for client-only UI:**
 Hooks there handle browser interaction (a menu toggle, for example) and never fetch CMS data. File names are camelCase prefixed with `use`.
@@ -199,6 +210,7 @@ The CMS boundary, where a mistake breaks the site silently or leaks a secret:
 - **`cmsFetch()`:** returns `empty` when `HEADLESS_CMS_API_URL` is unset, without calling `fetch`; sends `GET {url}{path}` with `Authorization: Bearer <key>`; passes `next: { tags: ['cms', tag], revalidate: 3600 }`; returns the unwrapped `data`; throws on a non-2xx response (`401`, `500`).
 - **Each `getX()`:** one test of its wiring: the path, its tag and its empty value.
 - **The revalidate route:** `401` with the documented body for a missing header, a wrong secret, and an unset `HEADLESS_CMS_WEBHOOK_SECRET`; `200` and the `cms` tag expired for the right secret.
+  - The unset-secret test sends a full `Bearer <secret>` token, not `Bearer `. `Request` headers trim whitespace, so `Bearer ` arrives as `Bearer` and is rejected on length alone. That test would pass even with the empty-secret guard removed.
 - **A bug that was fixed:** write the failing test first, then fix the code, so it can't come back.
 
 Don't write a test for: static markup, styling, metadata, a constant, or Next.js behaviour itself. Rendering is checked by hand (see Manual testing).
@@ -222,6 +234,10 @@ Don't write a test for: static markup, styling, metadata, a constant, or Next.js
 ### Manual testing
 
 Rendering and the live loop are tested by hand, as the Testing section of `docs/client-website.md` describes: local rendering against the CMS backend on port 4000, a static `next build`, and a wrong-secret `401` on the deployed route. The CMS operator then runs the webhook and live-update tests from the backend repo.
+
+Local ports: the CMS dashboard runs on 3000 and the CMS API on 4000, so this site's `npm run dev` and `npm run start` use 3001.
+
+When the backend isn't available, a throwaway mock of `GET /api/public/posts`, run from outside the repo with `HEADLESS_CMS_API_URL` pointed at it, can check rendering, caching (repeat visits make no new request) and revalidation (the next visit after a `200` shows the change). It never replaces the test against the real CMS.
 
 Content created in the CMS for testing belongs to the CMS database. List everything a test created (posts, for example) so Rich can have the backend session delete it.
 
@@ -247,7 +263,7 @@ When Rich says to commit, first update the Progress line below to describe the s
 
 ## Progress
 
-Starter code removed; Prettier, `.env.example` and `.env.local` (filled in locally, never committed) set up; home page (`/`) only. Next: the CMS integration (`_lib/cmsFetch.js`, `_lib/getPosts.js`, the revalidate route, Vitest and `src/test/`), then the posts page and testing against the CMS. Open decisions: the posts route.
+CMS integration done and tested locally: `cmsFetch`, `getPosts`, the revalidate route and Vitest (12 tests), with posts rendered by `_components/Blog.jsx` below the hero on `/` (static, 1h fallback). Tested against the local CMS: posts render; a wrong secret returns 401; the right secret returns 200 and the next visit shows the edit. Pending the CMS deploy: set the three env vars on Vercel (leave them unset until then, so the build returns no posts instead of failing), check that a deployed wrong-secret POST returns 401, and have the CMS operator run the live test. Test content: Rich's local post header was edited to "welcome home! (edited)".
 
 ## Plan Authoring
 
