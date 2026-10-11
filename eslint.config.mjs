@@ -1,3 +1,4 @@
+// ESLint config: the Next.js core-web-vitals rules. Run with npm run lint.
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 
