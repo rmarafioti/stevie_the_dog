@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { getPosts } from "../_lib/getPosts";
+import FormattedText from "./FormattedText";
 import styles from "../_styling/Blog.module.css";
 
 // Formats a YYYY-MM-DD postDate as e.g. "Oct 11, 2026". The date is built and formatted in UTC so
@@ -51,7 +52,7 @@ function PostBody({ body }) {
     if (item.type === "paragraph") {
       return (
         <p key={index} className={styles.paragraph}>
-          {item.text}
+          <FormattedText text={item.text} />
         </p>
       );
     }
@@ -78,16 +79,6 @@ export default async function Blog() {
           )}
           <PostTitle header={post.header} subHeader={post.subHeader} />
           <PostBody body={post.body} />
-          {post.links.length > 0 && (
-            <ul>
-              {/* Links have no id and two may share a URL, so the index is the key. */}
-              {post.links.map((link, index) => (
-                <li key={index}>
-                  <a href={link.url}>{link.name}</a>
-                </li>
-              ))}
-            </ul>
-          )}
         </article>
       ))}
     </section>

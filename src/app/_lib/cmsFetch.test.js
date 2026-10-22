@@ -47,7 +47,7 @@ describe("cmsFetch", () => {
 
   it("returns the unwrapped data", async () => {
     stubCmsEnv();
-    const posts = [{ id: "post-1", header: "Hello", body: [], links: [] }];
+    const posts = [{ id: "post-1", header: "Hello", body: [] }];
     mockFetch({ body: { data: posts } });
 
     const result = await cmsFetch("/api/public/posts", OPTIONS);
@@ -66,6 +66,22 @@ describe("cmsFetch", () => {
 
     await expect(request).rejects.toThrow(
       "Headless CMS request failed: /api/public/posts HTTP 401",
+    );
+  });
+
+  it("throws when the CMS returns 429", async () => {
+    stubCmsEnv();
+    mockFetch({
+      status: 429,
+      body: {
+        error: { message: "Too many requests. Please try again later." },
+      },
+    });
+
+    const request = cmsFetch("/api/public/posts", OPTIONS);
+
+    await expect(request).rejects.toThrow(
+      "Headless CMS request failed: /api/public/posts HTTP 429",
     );
   });
 
