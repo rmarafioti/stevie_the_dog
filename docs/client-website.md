@@ -280,12 +280,7 @@ function renderLink(segment, key) {
   if (!segment.url.startsWith("https://"))
     return `[${segment.text}](${segment.url})`;
   return (
-    <a
-      key={key}
-      href={segment.url}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
+    <a key={key} href={segment.url} target="_blank" rel="noopener noreferrer">
       {segment.text}
     </a>
   );
