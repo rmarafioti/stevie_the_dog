@@ -22,7 +22,7 @@ Fill this in when the file is copied into a new client repo.
 | ------------------- | ------------------------------------------------------------------------------------------- |
 | Website name        | Stevie The Dog                                                                              |
 | Production URL      | `https://www.steviethedog.com`: the exact URL stored in the CMS, no redirect                |
-| Vercel project      | stevie_the_dog                                                                              |
+| Vercel project      | stevie_the_dog, in 3DWD's Vercel Pro team (once Rich moves it there)                        |
 | CMS media folder    | `steviethedog`: this site's upload folder in 3DWD's Cloudinary account, given by the CMS    |
 | Static image folder | `stevie_the_dog`: the site's own images (`_data/photos.js`), in the same Cloudinary account |
 | CMS content used    | posts → `_components/Blog.jsx`, below the hero on `/`                                       |
@@ -36,7 +36,7 @@ Fill this in when the file is copied into a new client repo.
 - CMS data: one `server-only` `cmsFetch()` plus a `getX()` function per resource, and `src/app/api/revalidate/route.js` for on-demand revalidation
 - Images: `next/image`. CMS images come from this site's upload folder in 3DWD's Cloudinary account; the site's own images live in `public/` or in its own Cloudinary folder.
 - Testing: Vitest
-- Hosting: Vercel
+- Hosting: Vercel, in 3DWD's Vercel Pro team (Hobby is non-commercial only, and client sites pay a hosting fee)
 
 ## Project Architecture
 
@@ -270,7 +270,15 @@ When Rich says to commit, first update the Progress line below to describe the s
 
 ## Progress
 
-Docs synced with the master guide and template (22 October; `docs/client-website.md` byte-identical to the master, and every snippet in it matches its file). CMS integration done and tested against the local CMS: `cmsFetch` (401, 429 and 500 tested), `getPosts`, the revalidate route, and paragraph formatting through `parseParagraph` and `FormattedText` (every rendering example tested; 35 tests). Posts render in `_components/Blog.jsx` below the hero on `/` (static, 1h fallback), with paragraphs formatted and line breaks kept, and links underlined and opening in a new tab. `next/image` loads only from `3dwd/steviethedog/`, `3dwd-dev/steviethedog/` and `stevie_the_dog/`. Locally, the CMS sends its revalidate call to the stored production URL, so after a dashboard change, POST to `localhost:3001/api/revalidate` by hand to see it. Pending the CMS deploy: set the three env vars on Vercel (leave them unset until then, so the build returns no posts instead of failing), check that a deployed wrong-secret POST returns 401, and have the CMS operator run the live test. Test content to delete from the local CMS: "Test Post" (archived, with two images in `3dwd-dev/steviethedog/`), the untitled post with the LinkedIn links, and "welcome home! (edited)".
+Docs synced with the master guide and template (22 October; `docs/client-website.md` byte-identical to the master, and every snippet in it matches its file). CMS integration done and tested against the local CMS: `cmsFetch` (401, 429 and 500 tested), `getPosts`, the revalidate route, and paragraph formatting through `parseParagraph` and `FormattedText` (every rendering example tested; 35 tests). Posts render in `_components/Blog.jsx` below the hero on `/` (static, 1h fallback), with paragraphs formatted and line breaks kept, and links underlined and opening in a new tab. `next/image` loads only from `3dwd/steviethedog/`, `3dwd-dev/steviethedog/` and `stevie_the_dog/`. Locally, the CMS sends its revalidate call to the stored production URL, so after a dashboard change, POST to `localhost:3001/api/revalidate` by hand to see it.
+
+CMS deploy (planned 24 October in the backend's `docs/deploy.md`): staging first (API `https://api-staging.3dwebdev.com`, its own database, Cloudinary `3dwd-dev`), then production (API `https://api.3dwebdev.com`, Cloudinary `3dwd`). Stevie The Dog is the first production onboarding; both deployed databases start empty. The API key and webhook secret from the local CMS don't work on staging or production: each environment issues new ones when the website is created there, and production's go into 1Password (3DWD Clients). At onboarding the stored website URL is `https://www.steviethedog.com`, the URL the site is served on, with no redirect. Env vars on this site's Vercel project (Production scope), in order:
+
+1. Until CMS checklist step 18: the three `HEADLESS_CMS_*` vars stay unset, so the build returns no posts instead of failing.
+2. Step 18 (staging test): set `HEADLESS_CMS_API_URL=https://api-staging.3dwebdev.com` plus staging's key and secret, run client-website Tests A–C, then unset all three again.
+3. Step 27 (production onboarding): set `HEADLESS_CMS_API_URL=https://api.3dwebdev.com` plus production's key and secret, and redeploy. Then check that a deployed wrong-secret POST returns 401, and have the CMS operator run the live test.
+
+"First Post!" is written again in production, with an uploaded image in `3dwd/steviethedog/`. The local CMS database was reset to its baseline on 22 October, so no local test content is left to delete.
 
 ## Plan Authoring
 
