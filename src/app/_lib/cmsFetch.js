@@ -2,7 +2,7 @@
 // browser. Every request is tagged "cms", so /api/revalidate can expire all CMS data at once.
 import "server-only";
 
-export async function cmsFetch(path, { tag, empty }) {
+export async function cmsFetch(path, { tag, empty, notFound }) {
   // Not wired up yet: render nothing rather than fail the build.
   if (!process.env.HEADLESS_CMS_API_URL) return empty;
 
@@ -10,6 +10,10 @@ export async function cmsFetch(path, { tag, empty }) {
     headers: { Authorization: `Bearer ${process.env.HEADLESS_CMS_API_KEY}` },
     next: { tags: ["cms", tag], revalidate: 3600 },
   });
+
+  // A resource that isn't published (a gallery code that doesn't exist) isn't a failure: return
+  // the caller's notFound value so the page can show its 404.
+  if (response.status === 404 && notFound !== undefined) return notFound;
 
   // Throw instead of returning empty, so a failed regeneration keeps the last good page.
   if (!response.ok)
