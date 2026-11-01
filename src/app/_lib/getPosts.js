@@ -1,4 +1,4 @@
-// This website's active posts from the Headless CMS, newest first. Server Components only.
+// This website's published posts from the Headless CMS, newest first. Server Components only.
 import { cmsFetch } from "./cmsFetch";
 
 export function getPosts() {

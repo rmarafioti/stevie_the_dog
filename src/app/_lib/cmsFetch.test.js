@@ -55,6 +55,39 @@ describe("cmsFetch", () => {
     expect(result).toEqual(posts);
   });
 
+  it("returns the notFound value when the CMS returns 404 and one is given", async () => {
+    stubCmsEnv();
+    mockFetch({
+      status: 404,
+      body: { error: { message: "Gallery not found." } },
+    });
+
+    const result = await cmsFetch("/api/public/galleries/summer", {
+      tag: "galleries",
+      empty: null,
+      notFound: null,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("throws when the CMS returns 404 and no notFound value is given", async () => {
+    stubCmsEnv();
+    mockFetch({
+      status: 404,
+      body: { error: { message: "Gallery not found." } },
+    });
+
+    const request = cmsFetch("/api/public/galleries/summer", {
+      tag: "galleries",
+      empty: null,
+    });
+
+    await expect(request).rejects.toThrow(
+      "Headless CMS request failed: /api/public/galleries/summer HTTP 404",
+    );
+  });
+
   it("throws when the CMS returns 401", async () => {
     stubCmsEnv();
     mockFetch({

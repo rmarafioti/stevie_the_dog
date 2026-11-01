@@ -1,13 +1,13 @@
 # Client to Website
 
-How a client website shows the posts its site owner manages in the Headless CMS App, and how it updates within moments whenever a post changes. Copy this file into the client website's repo as docs/client-website.md and import it from that repo's CLAUDE.md (@docs/client-website.md). Everything a client website needs is in this file.
+How a client website shows the posts and galleries its site owner manages in the Headless CMS App, and how it updates within moments whenever one changes. Copy this file into the client website's repo as docs/client-website.md and import it from that repo's CLAUDE.md (@docs/client-website.md). Everything a client website needs is in this file.
 
 ## How it works
 
-1. The site owner creates, edits, archives or reactivates a post in the CMS dashboard.
+1. The site owner creates, edits, drafts, publishes or deletes a post or a gallery in the CMS dashboard.
 2. The CMS calls this website's POST /api/revalidate route, signed with the website's webhook secret.
-3. The route marks the cached posts as stale.
-4. On the next visit, the page fetches the website's active posts from the CMS API (GET /api/public/posts, signed with the website's API key) and regenerates.
+3. The route marks the cached CMS data as stale.
+4. On the next visit, the page fetches the website's published posts from the CMS API (GET /api/public/posts, signed with the website's API key) and regenerates.
 
 The page stays static (fast, good for SEO) and still shows a change within moments, with no rebuild or redeploy. A time-based fallback re-fetches every hour in case a revalidation call is ever missed.
 
@@ -27,7 +27,7 @@ Add the three names, with empty values, to .env.example so the next developer kn
 
 GET {HEADLESS_CMS_API_URL}/api/public/posts with the header Authorization: Bearer `<HEADLESS_CMS_API_KEY>`. No cookie and no other headers.
 
-Success: 200 { "data": PublicPost[] }, the website's active posts only, newest first.
+Success: 200 { "data": PublicPost[] }, the website's published posts that aren't deleted, newest createdAt first. A draft is hidden from the website.
 
 ```
 PublicPost { id, header, subHeader, postDate, createdAt, updatedAt,
@@ -41,7 +41,7 @@ PublicPost { id, header, subHeader, postDate, createdAt, updatedAt,
 Errors arrive as { "error": { "message": "..." } }:
 
 - 401 "Invalid API key." means the key is missing or wrong, or the website has been deactivated in the CMS.
-- 429 "Too many requests. Please try again later." means a CMS rate limit was hit: more than 30 calls a minute with this website's key, or more than 10 calls a minute with a wrong key from one address. cmsFetch() throws on it like any other error, so the last good page stays up.
+- 429 "Too many requests. Please try again later." means a CMS rate limit was hit: more than 30 calls a minute with this website's key (every public route counts together, posts and galleries), or more than 10 calls a minute with a wrong key from one address. cmsFetch() throws on it like any other error, so the last good page stays up.
 - 500 "Something went wrong, please try again." means a server error.
 
 ## Fetching CMS data
@@ -55,7 +55,7 @@ src/app/_lib/cmsFetch.js:
 // browser. Every request is tagged "cms", so /api/revalidate can expire all CMS data at once.
 import "server-only";
 
-export async function cmsFetch(path, { tag, empty }) {
+export async function cmsFetch(path, { tag, empty, notFound }) {
   // Not wired up yet: render nothing rather than fail the build.
   if (!process.env.HEADLESS_CMS_API_URL) return empty;
 
@@ -63,6 +63,10 @@ export async function cmsFetch(path, { tag, empty }) {
     headers: { Authorization: `Bearer ${process.env.HEADLESS_CMS_API_KEY}` },
     next: { tags: ["cms", tag], revalidate: 3600 },
   });
+
+  // A resource that isn't published (a gallery code that doesn't exist) isn't a failure: return
+  // the caller's notFound value so the page can show its 404.
+  if (response.status === 404 && notFound !== undefined) return notFound;
 
   // Throw instead of returning empty, so a failed regeneration keeps the last good page.
   if (!response.ok)
@@ -78,7 +82,7 @@ export async function cmsFetch(path, { tag, empty }) {
 src/app/_lib/getPosts.js:
 
 ```js
-// This website's active posts from the Headless CMS, newest first. Server Components only.
+// This website's published posts from the Headless CMS, newest first. Server Components only.
 import { cmsFetch } from "./cmsFetch";
 
 export function getPosts() {
@@ -86,9 +90,10 @@ export function getPosts() {
 }
 ```
 
-- next.tags: `["cms", tag]` gives every request the shared cms tag, which the revalidate route expires, plus its own tag (posts), so a site can later expire one kind of content on its own. The CMS's revalidation call doesn't say what changed, so the route refreshes all CMS data; re-fetching data that didn't change costs almost nothing.
+- next.tags: `["cms", tag]` gives every request the shared cms tag, which the revalidate route expires, plus its own tag (posts), so a site can later expire one kind of content on its own. The route doesn't read which post or gallery the CMS's revalidation call names, so it refreshes all CMS data; re-fetching data that didn't change costs almost nothing.
 - next.revalidate: 3600 is the hourly fallback.
-- empty is what cmsFetch returns before HEADLESS_CMS_API_URL is set: [] for a list such as posts.
+- empty is what cmsFetch returns before HEADLESS_CMS_API_URL is set: [] for a list such as posts, null for a single item such as a gallery.
+- notFound is optional: what cmsFetch returns when the CMS answers 404 (null for a gallery, so the page can call notFound()). Without it, a 404 throws like any other error. getPosts() doesn't pass it, since the posts list never answers 404.
 - Install server-only (npm install server-only) so an accidental import from a Client Component fails at build time.
 - Add a new getX function (getHours, for example) only once the CMS serves that data and this guide specs it.
 - The snippets are already formatted with Prettier's defaults (double quotes, 80-character lines), so npm run format leaves a copied snippet unchanged.
@@ -134,6 +139,69 @@ images: {
 - The first two entries allow the site owner's uploads (production, then local testing), the third this website's own static images. Another website's folder, a sibling folder such as steviethedog-2, and other Cloudinary accounts are refused. Drop the third entry if the site's own images live in public/.
 - Styling and placement belong to each website, apart from the two functional styles above: white-space: pre-line on paragraphs and max-width: 100%; height: auto on images. This guide covers data and structure only.
 - With no posts (an empty array), render nothing, or a short message the site chooses.
+
+## Galleries
+
+A site shows a gallery only once the site owner and Rich decide where it goes. Until then, nothing below is built; the snippet and the two remotePatterns rows are added when the site first shows a gallery.
+
+GET {HEADLESS_CMS_API_URL}/api/public/galleries/:slug with the same header as posts, Authorization: Bearer `<HEADLESS_CMS_API_KEY>`, server side only. It returns one gallery.
+
+Success: 200 { "data": PublicGallery }.
+
+```
+PublicGallery { id, slug, title, copy, createdAt, updatedAt,
+                images: [{ src, width, height, altText, caption,
+                           thumbnail: CroppedImage | null, mobile: CroppedImage | null }] }
+CroppedImage { src, width, height }
+```
+
+- title, copy and caption are null when empty. copy is plain text with no formatting markup; render it with white-space: pre-line.
+- A gallery has 1 to 30 images, in the order the site owner arranged them. galleryName and image ids are never returned.
+- thumbnail is a square crop and mobile a crop at least as tall as wide. Each is a Cloudinary URL that cuts that rectangle from the stored image, with the crop's own width and height for next/image. Either is null when the site owner didn't crop one; the site then shows the full image.
+- A gallery's crops are consistent: every image has a thumbnail or none does, the same for mobile, and every mobile crop has one shape.
+- The slug: the site owner gives Rich the gallery's "Gallery Code", the slug, to say which gallery goes where. It is made from the gallery name at create and never changes, so a rename never breaks the site.
+
+Errors:
+
+- 404 "Gallery not found." when this website has no published gallery with that slug (a draft, a deleted gallery or another website's gallery all give the same answer).
+- 401 "Invalid API key." and 429 "Too many requests. Please try again later." as for posts.
+
+src/app/_lib/getGallery.js:
+
+```js
+// One of this website's published galleries from the Headless CMS, by its Gallery Code (slug),
+// or null when there is none. Server Components only.
+import { cmsFetch } from "./cmsFetch";
+
+export function getGallery(slug) {
+  return cmsFetch(`/api/public/galleries/${slug}`, {
+    tag: "galleries",
+    empty: null,
+    notFound: null,
+  });
+}
+```
+
+- It has its own tag (galleries) beside the shared cms tag, and next.revalidate 3600 like every CMS fetch.
+- When it returns null, the page calls notFound() from next/navigation, so a wrong or unpublished Gallery Code shows the site's 404 page. 401, 429 and 500 still throw, so the last good page stays up.
+
+A site that shows gallery crops needs two more remotePatterns entries, beside the three it has. Add them only when the site first shows a gallery:
+
+```js
+    // Gallery crops from the CMS: production, then local testing.
+    {
+      protocol: "https",
+      hostname: "res.cloudinary.com",
+      pathname: "/dzpne110u/image/upload/*/*/3dwd/<media_folder>/**",
+    },
+    {
+      protocol: "https",
+      hostname: "res.cloudinary.com",
+      pathname: "/dzpne110u/image/upload/*/*/3dwd-dev/<media_folder>/**",
+    },
+```
+
+- A cropped URL has one more path segment than a stored src (the crop, before the version): https://res.cloudinary.com/dzpne110u/image/upload/c_crop,x_200,y_0,w_800,h_800/v1760000000/3dwd/steviethedog/abc123.jpg. In a pattern, \* matches exactly one segment, so the existing one-\* rows refuse a cropped URL and the \*/\* rows accept it. Both still refuse a sibling folder such as steviethedog-2 (checked against Next.js 16.4.3's matcher, 2026-10-31).
 
 ## Paragraph formatting
 
@@ -341,11 +409,11 @@ Every `<a>` in the Output column also carries `target="_blank" rel="noopener nor
 
 ## The revalidate route
 
-Create src/app/api/revalidate/route.js. The CMS calls it after every create, edit, archive or reactivate:
+Create src/app/api/revalidate/route.js. The CMS calls it after a create, edit, draft or publish, or delete of a post or a gallery:
 
 - POST {website URL}/api/revalidate
 - headers Authorization: Bearer `<webhook secret>` and Content-Type: application/json
-- body { "websiteId": "...", "postId": "..." }
+- body { "websiteId": "...", "postId": "..." } for a post, or { "websiteId": "...", "galleryId": "..." } for a gallery
 - a 5 second timeout
 
 The CMS only logs the result. It never retries, and a failure never blocks the site owner.
@@ -385,7 +453,7 @@ export async function POST(request) {
 - Compare the secret with timingSafeEqual, never ===. Return 401 when it is missing or wrong.
 - Respond fast: do no other work in this route.
 - Never log the Authorization header or the secret.
-- The body (websiteId, postId) is informational. All CMS data shares the cms tag, so the route doesn't need it. A site that later gives each post its own page can use postId to expire a narrower tag.
+- The body (websiteId, plus postId or galleryId) is informational. All CMS data shares the cms tag, so the route doesn't need it. The route must not require postId: it expires the whole cms tag whatever the body names. A site that later gives each post its own page can use postId to expire a narrower tag.
 - **The URL must not redirect.** The CMS calls the exact website URL it has stored, for example https://www.example.com. If that URL redirects (www to bare domain, or the other way), the redirect drops the Authorization header and the call fails with 401. Store the URL the site is actually served on.
 
 ## Check the installed Next.js version
@@ -402,7 +470,7 @@ The caching APIs changed between Next.js versions. Before writing the code, chec
 1. **Local rendering:**
    - Run the CMS backend locally (port 4000).
    - Set HEADLESS_CMS_API_URL=http://localhost:4000 and the API key in .env.local, then run this site.
-   - Create posts in the CMS dashboard and check that they render. Cover paragraphs only, paragraphs and images interleaved (the images uploaded from the post form, loading from `3dwd-dev/<media_folder>/`), line breaks, formatting (bold, italic, bold-italic, a link, a link inside bold, and markup left as typed such as `5 * 3 * 2`), empty optional fields, and an archived post, which must not appear.
+   - Create posts in the CMS dashboard and check that they render. Cover paragraphs only, paragraphs and images interleaved (the images uploaded from the post form, loading from `3dwd-dev/<media_folder>/`), line breaks, formatting (bold, italic, bold-italic, a link, a link inside bold, and markup left as typed such as `5 * 3 * 2`), empty optional fields, and a draft post, which must not appear.
 2. **Static build:** run next build and confirm every page that renders posts is static, then next start and confirm it still shows the posts.
 3. **Deployed:** deploy with all three env vars set.
    - A POST /api/revalidate with a wrong secret returns 401.
@@ -412,11 +480,11 @@ Before the CMS backend is available, a throwaway mock of GET /api/public/posts (
 
 ## Done when
 
-- Every CMS request goes through cmsFetch(), which is server-only, sends the Bearer API key, tags the request cms plus its own tag with an hourly fallback, throws on errors, and returns its empty value when the API URL is unset (getPosts() returns [])
+- Every CMS request goes through cmsFetch(), which is server-only, sends the Bearer API key, tags the request cms plus its own tag with an hourly fallback, throws on errors, returns its notFound value on a 404 when one is given (getGallery() returns null), and returns its empty value when the API URL is unset (getPosts() returns [])
 - Posts render newest first; each body renders in order; paragraphs keep line breaks; formatting renders as in the rendering examples, with no raw HTML; images use next/image, allowed only from this website's folders in next.config.mjs; empty optional fields don't render
 - /api/revalidate accepts only POST, checks the secret with timingSafeEqual, returns 401 on a bad secret, and expires the cms tag
 - npm test passes: cmsFetch(), each getX() and the revalidate route are tested (the Unit Tests section of CLAUDE.md)
 - Every page that renders posts builds as static
 - The three env vars are set in .env.local and on Vercel, none are NEXT_PUBLIC_, and none are committed
 - The website's stored URL serves the site directly, with no redirect
-- The CMS operator's live test passes: creating, editing, archiving and reactivating a post each show on the live site within moments
+- The CMS operator's live test passes: creating, editing, drafting, publishing and deleting a post each show on the live site within moments

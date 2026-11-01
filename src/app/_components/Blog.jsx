@@ -1,5 +1,5 @@
-// Stevie's blog: the site's active posts from the Headless CMS, newest first, rendered below the
-// hero on the home page. Server Component: posts are fetched at build/regeneration time.
+// Stevie's blog: the site's published posts from the Headless CMS, newest first, rendered below
+// the hero on the home page. Server Component: posts are fetched at build/regeneration time.
 import Image from "next/image";
 
 import { getPosts } from "../_lib/getPosts";

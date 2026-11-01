@@ -22,7 +22,7 @@ Fill this in when the file is copied into a new client repo.
 | ------------------- | ------------------------------------------------------------------------------------------- |
 | Website name        | Stevie The Dog                                                                              |
 | Production URL      | `https://www.steviethedog.com`: the exact URL stored in the CMS, no redirect                |
-| Vercel project      | stevie_the_dog, in 3DWD's Vercel Pro team (once Rich moves it there)                        |
+| Vercel project      | stevie_the_dog, in 3DWD's Vercel Pro team                                                   |
 | CMS media folder    | `steviethedog`: this site's upload folder in 3DWD's Cloudinary account, given by the CMS    |
 | Static image folder | `stevie_the_dog`: the site's own images (`_data/photos.js`), in the same Cloudinary account |
 | CMS content used    | posts → `_components/Blog.jsx`, below the hero on `/`                                       |
@@ -135,11 +135,12 @@ No CSS frameworks, no component libraries, no color, font or spacing choices. St
 ## Patterns and Preferences
 
 **One shared CMS fetch, one function per resource:**
-`cmsFetch(path, { tag, empty })` in `_lib/cmsFetch.js`:
+`cmsFetch(path, { tag, empty, notFound })` in `_lib/cmsFetch.js`:
 
 - returns empty when `HEADLESS_CMS_API_URL` is unset, so the site still builds before it is wired up
 - sends `GET {HEADLESS_CMS_API_URL}{path}` with `Authorization: Bearer <HEADLESS_CMS_API_KEY>`
 - caches with `next: { tags: ["cms", tag], revalidate: 3600 }`: the shared cms tag lets the revalidate route expire every resource at once, and `revalidate: 3600` is the hourly fallback. Keep revalidate on every CMS fetch: the request sends an Authorization header, and Next.js 16 only caches such a request when it has an explicit cache setting
+- returns `notFound` on a 404 when the caller passes one (`null` for a gallery, so the page can call `notFound()` and show the 404 page); without it, a 404 throws like any other error
 - throws on a non-2xx response, so a failed regeneration keeps the last good page
 - returns the unwrapped data
 
@@ -177,7 +178,7 @@ Keep all code readable and explicit. Comments explain the logic in more abstract
 - Anything that writes to the CMS: no forms, admin pages or editing of CMS content. The site owner uses the CMS dashboard.
 - Any CMS endpoint not specced in `docs/client-website.md`.
 - Login, user accounts, a database, or storing any visitor data.
-- A page per post. The CMS sends `postId` in the revalidate body for when this is wanted later; it isn't built until Rich asks.
+- A page per post. The CMS sends `postId` (or `galleryId` for a gallery) in the revalidate body for when this is wanted later; it isn't built until Rich asks.
 
 ## Code Style
 
@@ -218,7 +219,7 @@ Vitest, node environment. `npm test` runs the suite once; `npm run test:watch` w
 
 The CMS boundary, where a mistake breaks the site silently or leaks a secret:
 
-- **`cmsFetch()`:** returns empty when `HEADLESS_CMS_API_URL` is unset, without calling fetch; sends `GET {url}{path}` with `Authorization: Bearer <key>`; passes `next: { tags: ["cms", tag], revalidate: 3600 }`; returns the unwrapped data; throws on a non-2xx response (`401`, `429`, `500`).
+- **`cmsFetch()`:** returns empty when `HEADLESS_CMS_API_URL` is unset, without calling fetch; sends `GET {url}{path}` with `Authorization: Bearer <key>`; passes `next: { tags: ["cms", tag], revalidate: 3600 }`; returns the unwrapped data; returns the `notFound` value on a `404` when one is given, and throws on a `404` when none is; throws on a non-2xx response (`401`, `429`, `500`).
 - **Each `getX()`:** one test of its wiring: the path, its tag and its empty value.
 - **The revalidate route:** `401` with the documented body for a missing header, a wrong secret, and an unset `HEADLESS_CMS_WEBHOOK_SECRET`; `200` and the cms tag expired for the right secret. For the unset-secret case, send a full `Bearer <secret>`, not `"Bearer "` with nothing after it: header values are trimmed, so it arrives as `"Bearer"` and fails on length alone, and the test would pass even with the guard deleted.
 - **parseParagraph() and FormattedText:** every row of the rendering examples table in `docs/client-website.md` (Paragraph formatting), rendered and compared with its Output column, with `target="_blank" rel="noopener noreferrer"` added to each expected `<a>` (or left off if Site Details says same tab).
@@ -270,7 +271,7 @@ When Rich says to commit, first update the Progress line below to describe the s
 
 ## Progress
 
-Docs synced with the master guide and template (22 October; `docs/client-website.md` byte-identical to the master, and every snippet in it matches its file). CMS integration done and tested against the local CMS: `cmsFetch` (401, 429 and 500 tested), `getPosts`, the revalidate route, and paragraph formatting through `parseParagraph` and `FormattedText` (every rendering example tested; 35 tests). Posts render in `_components/Blog.jsx` below the hero on `/` (static, 1h fallback), with paragraphs formatted and line breaks kept, and links underlined and opening in a new tab. `next/image` loads only from `3dwd/steviethedog/`, `3dwd-dev/steviethedog/` and `stevie_the_dog/`. Locally, the CMS sends its revalidate call to the stored production URL, so after a dashboard change, POST to `localhost:3001/api/revalidate` by hand to see it.
+Docs synced with the backend's Documentation Sync (1 November): the guide now uses published / draft post status (CMS Feature 8) and documents galleries (Feature 10: `GET /api/public/galleries/:slug`, `getGallery(slug)` and the two crop remotePatterns rows), in the guide only. No gallery is shown on this site yet, so there is no `getGallery.js` and `next.config.mjs` has no crop rows; Rich will wire one up in a later session. This repo's copy adds a `notFound` option to `cmsFetch` (a 404 returns it, so a missing gallery can show the 404 page), which the backend was told to add to the master guide. Every snippet in the guide matches its file. CMS integration done and tested against the local CMS: `cmsFetch` (401, 429, 500 and 404 tested), `getPosts`, the revalidate route, and paragraph formatting through `parseParagraph` and `FormattedText` (every rendering example tested; 37 tests). Posts render in `_components/Blog.jsx` below the hero on `/` (static, 1h fallback), with paragraphs formatted and line breaks kept, and links underlined and opening in a new tab. `next/image` loads only from `3dwd/steviethedog/`, `3dwd-dev/steviethedog/` and `stevie_the_dog/`. Locally, the CMS sends its revalidate call to the stored production URL, so after a dashboard change, POST to `localhost:3001/api/revalidate` by hand to see it.
 
 CMS deploy (done 28 October): the CMS launched on 28 October (API `https://api.3dwebdev.com`, dashboard `https://3dwebdev.com`), and Stevie The Dog is its first production client website. At onboarding (CMS checklist step 27), production issued this site's API key and webhook secret, now in 1Password (3DWD Clients). The stored website URL is `https://www.steviethedog.com`, the URL the site is served on, with no redirect, and uploads go to `3dwd/steviethedog/`. On this site's Vercel project the three `HEADLESS_CMS_*` vars are set for Production (`HEADLESS_CMS_API_URL=https://api.3dwebdev.com` plus production's key and secret), and the site was redeployed. The live test (step 28) passed: creating, archiving, reactivating and editing a post each showed on www.steviethedog.com after one refresh, and a deployed wrong-secret `POST /api/revalidate` returns 401. Each CMS environment issues its own key and secret, so the local ones never work on staging or production. The CMS's staging (`https://api-staging.3dwebdev.com`) is kept for now. This site's Vercel vars stay on production, and staging is used only if Rich runs another staging test.
 
