@@ -409,11 +409,11 @@ Every `<a>` in the Output column also carries `target="_blank" rel="noopener nor
 
 ## The revalidate route
 
-Create src/app/api/revalidate/route.js. The CMS calls it after a create, edit, draft or publish, or delete of a post or a gallery:
+Create src/app/api/revalidate/route.js. The CMS calls it after a create, edit, draft or publish, or delete of a post or a gallery, and when one of the website's abilities (posts, galleries) is turned on or off, removed or restored:
 
 - POST {website URL}/api/revalidate
 - headers Authorization: Bearer `<webhook secret>` and Content-Type: application/json
-- body { "websiteId": "...", "postId": "..." } for a post, or { "websiteId": "...", "galleryId": "..." } for a gallery
+- body { "websiteId": "...", "postId": "..." } for a post, { "websiteId": "...", "galleryId": "..." } for a gallery, or { "websiteId": "...", "ability": "posts" | "galleries" } for an ability
 - a 5 second timeout
 
 The CMS only logs the result. It never retries, and a failure never blocks the site owner.
@@ -453,7 +453,7 @@ export async function POST(request) {
 - Compare the secret with timingSafeEqual, never ===. Return 401 when it is missing or wrong.
 - Respond fast: do no other work in this route.
 - Never log the Authorization header or the secret.
-- The body (websiteId, plus postId or galleryId) is informational. All CMS data shares the cms tag, so the route doesn't need it. The route must not require postId: it expires the whole cms tag whatever the body names. A site that later gives each post its own page can use postId to expire a narrower tag.
+- The body (websiteId, plus postId, galleryId or ability) is informational. All CMS data shares the cms tag, so the route doesn't need it. The route must not require postId or galleryId: it expires the whole cms tag whatever the body names. A site that later gives each post its own page can use postId to expire a narrower tag.
 - **The URL must not redirect.** The CMS calls the exact website URL it has stored, for example https://www.example.com. If that URL redirects (www to bare domain, or the other way), the redirect drops the Authorization header and the call fails with 401. Store the URL the site is actually served on.
 
 ## Check the installed Next.js version
