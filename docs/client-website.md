@@ -27,7 +27,7 @@ Add the three names, with empty values, to .env.example so the next developer kn
 
 GET {HEADLESS_CMS_API_URL}/api/public/posts with the header Authorization: Bearer `<HEADLESS_CMS_API_KEY>`. No cookie and no other headers.
 
-Success: 200 { "data": PublicPost[] }, the website's published posts that aren't deleted, newest createdAt first. A draft is hidden from the website.
+Success: 200 { "data": PublicPost[] }, the website's published posts that aren't deleted, newest createdAt first. A draft is hidden from the website. While the posts ability is turned off, the list is [].
 
 ```
 PublicPost { id, header, subHeader, postDate, createdAt, updatedAt,
@@ -159,11 +159,11 @@ CroppedImage { src, width, height }
 - A gallery has 1 to 30 images, in the order the site owner arranged them. galleryName and image ids are never returned.
 - thumbnail is a square crop and mobile a crop at least as tall as wide. Each is a Cloudinary URL that cuts that rectangle from the stored image, with the crop's own width and height for next/image. Either is null when the site owner didn't crop one; the site then shows the full image.
 - A gallery's crops are consistent: every image has a thumbnail or none does, the same for mobile, and every mobile crop has one shape.
-- The slug: the site owner gives Rich the gallery's "Gallery Code", the slug, to say which gallery goes where. It is made from the gallery name at create and never changes, so a rename never breaks the site.
+- The slug: the site owner gives Rich the gallery's "Gallery Code", the slug, to say which gallery goes where. The slug is generated when the gallery is created, 8 random lowercase letters and digits (`k3x9p2qa`), and never changes, so a rename never breaks the site. Galleries made before this rule keep their name-based slugs.
 
 Errors:
 
-- 404 "Gallery not found." when this website has no published gallery with that slug (a draft, a deleted gallery or another website's gallery all give the same answer).
+- 404 "Gallery not found." when this website has no published gallery with that slug (a draft, a deleted gallery, another website's gallery, or any gallery while the galleries ability is turned off or removed, all give the same answer).
 - 401 "Invalid API key." and 429 "Too many requests. Please try again later." as for posts.
 
 src/app/_lib/getGallery.js:
