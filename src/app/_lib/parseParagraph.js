@@ -1,5 +1,5 @@
 // A paragraph's text as the segments FormattedText renders, left to right. The rules are in
-// docs/client-website.md, Paragraph formatting.
+// docs/cms/posts.md, Paragraph formatting.
 // - { type: "text", text }
 // - { type: "link", text, url }
 // - { type: "bold" | "italic" | "boldItalic", children }: children are text and link segments

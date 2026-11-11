@@ -2,7 +2,7 @@
 
 The website for Stevie, a little dog in the big city of Chicago: [www.steviethedog.com](https://www.steviethedog.com).
 
-A static Next.js site hosted on Vercel. Blog posts are managed in the 3D Web Dev Headless CMS and fetched from its public API at build and regeneration time; everything else (pages, layout, styling) lives in this repo. The CMS integration is documented in [docs/client-website.md](docs/client-website.md), and project conventions in [CLAUDE.md](CLAUDE.md).
+A static Next.js site hosted on Vercel. Blog posts are managed in the 3D Web Dev Headless CMS and fetched from its public API at build and regeneration time; everything else (pages, layout, styling) lives in this repo. The CMS integration is documented in [docs/cms/](docs/cms/), synced from the client-kit repo, with this site's specifics in [docs/site.md](docs/site.md), and project conventions in [CLAUDE.md](CLAUDE.md).
 
 ## Local setup
 
