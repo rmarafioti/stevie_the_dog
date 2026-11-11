@@ -1,5 +1,5 @@
 // Tests for FormattedText (and parseParagraph through it): every row of the rendering examples
-// table in docs/client-website.md, Paragraph formatting, rendered and compared with its Output.
+// table in docs/cms/posts.md, Paragraph formatting, rendered and compared with its Output.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -54,8 +54,8 @@ const EXAMPLES = [
   ["[menu](http://example.com)", "[menu](http://example.com)"],
 ];
 
-// This site opens post links in a new tab (the guide leaves it to each site), so every link in
-// the guide's Output column also carries target and rel.
+// This site opens post links in a new tab (posts.md leaves it to each site), so every link in
+// posts.md's Output column also carries target and rel.
 function withNewTab(html) {
   return html.replace(
     /<a href="([^"]*)">/g,

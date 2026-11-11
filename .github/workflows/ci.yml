@@ -1,0 +1,56 @@
+# CI: lint and tests, plus the docs/cms checks: the folder matches client-kit's main, and a sync
+# pull request from client-kit changes nothing outside it. Copied from client-kit's templates/.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  cms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # client-kit is public, so this job's own token can read it.
+      - uses: actions/checkout@v7
+        with:
+          repository: rmarafioti/client-kit
+          path: .client-kit
+
+      - name: docs/cms matches client-kit
+        run: |
+          if ! diff -r .client-kit/docs/cms docs/cms; then
+            echo "::error::docs/cms differs from client-kit's main. Change it in client-kit, never here; a pending sync pull request brings it back in line."
+            exit 1
+          fi
+
+      # Auto-merge is allowed only for client-kit's sync pull requests, so this repo, not only
+      # the sync workflow, makes sure one never carries anything but docs/cms.
+      - name: A sync pull request changes only docs/cms
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, '3dwd-sync/')
+        run: |
+          outside=$(git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -v '^docs/cms/' || true)
+          if [ -n "$outside" ]; then
+            echo "::error::A sync pull request changed files outside docs/cms:"
+            echo "$outside"
+            exit 1
+          fi
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test

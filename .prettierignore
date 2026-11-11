@@ -1,2 +1,2 @@
-# The client guide: changed only from a CMS Documentation Sync handoff, never reformatted.
-docs/client-website.md
+# Synced unchanged from client-kit: never edited or reformatted here, or CI's drift check fails.
+docs/cms/

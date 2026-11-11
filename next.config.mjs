@@ -1,7 +1,7 @@
 // Next.js config.
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // next/image may load only this site's own Cloudinary folders (docs/client-website.md).
+  // next/image may load only this site's own Cloudinary folders (docs/cms/client-website.md, Images).
   images: {
     remotePatterns: [
       // Uploads from the CMS: production, then local testing.
