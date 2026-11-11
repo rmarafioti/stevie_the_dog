@@ -5,7 +5,7 @@ How a client website shows the content its site owner manages in the Headless CM
 - `posts.md`: the site owner's posts, and paragraph formatting.
 - `galleries.md`: photo galleries.
 
-This folder, `docs/cms/`, is copied unchanged from the `client-kit` repo into every client website's repo. Never edit it here: a change is made in `client-kit` and arrives as a sync pull request, and CI fails when this folder differs from `client-kit`. What is particular to this website (its name, pages, design, quirks, its media folder and which abilities it uses) is in `docs/site.md`.
+This folder, `docs/cms/`, is copied unchanged from the `client-kit` repo into every client website's repo. Never edit it here: a change is made in `client-kit` and arrives as a sync pull request, and CI fails when this folder differs from `client-kit`. To ask for a change, tell Rich: the backend session makes it in `client-kit`. What is particular to this website (its name, pages, design, quirks, its media folder and which abilities it uses) is in `docs/site.md`.
 
 ## How it works
 
