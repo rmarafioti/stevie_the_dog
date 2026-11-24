@@ -296,7 +296,7 @@ Every `<a>` in the Output column also carries `target="_blank" rel="noopener nor
 | `_not italic_` | `_not italic_` |
 | `**a *b* c**` | `<b>a *b* c</b>` |
 | `[**Menu**](https://example.com)` | `<a href="https://example.com">**Menu**</a>` |
-| `<b>hi</b> & more` | `<b>hi</b> & more` (shown as typed, never as HTML) |
+| `<b>hi</b> & more` | `&lt;b&gt;hi&lt;/b&gt; &amp; more` (shown as typed, never as HTML) |
 | `***both***` | `<b><i>both</i></b>` |
 | `*** spaced ***` | `*** spaced ***` |
 | `**a*` | `*<i>a</i>` |
