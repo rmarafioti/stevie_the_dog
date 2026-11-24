@@ -9,10 +9,11 @@ GET {HEADLESS_CMS_API_URL}/api/public/posts, with the header from `client-websit
 Success: 200 { "data": PublicPost[] }, the website's published posts that aren't deleted, newest createdAt first. A draft is hidden from the website. While the posts ability is turned off, the list is [].
 
 ```
-PublicPost { id, header, subHeader, postDate, createdAt, updatedAt,
+PublicPost { id, slug, header, subHeader, postDate, createdAt, updatedAt,
              body: [{ type: 'paragraph', text } | { type: 'image', image: { src, width, height, altText } }] }
 ```
 
+- slug is the post's address on this website, such as why-dbt-tests-matter. It is set when the post is created (the site owner's own Web address, else made from the header, else 8 random letters and digits), unique among the website's posts, and never changes: not when the header is edited, nor when the post is drafted, published, deleted or restored, so a shared link keeps working. It is only lowercase letters, digits and single hyphens, so it goes into a URL as is. Link a post by its slug, never its id.
 - header, subHeader and postDate are null when the site owner left them empty. postDate is a date only, YYYY-MM-DD. createdAt and updatedAt are ISO 8601.
 - body is the post's content in the order the site owner arranged it: at least 1 paragraph, at most 5 paragraphs and 5 images. A paragraph's text keeps the line breaks the site owner typed, and may contain formatting markup (Paragraph formatting, below).
 - An image's src, width and height are as `client-website.md` → The API this website calls describes.
@@ -33,7 +34,7 @@ export function getPosts() {
 
 ## Rendering posts
 
-- Posts may render on their own route or inside an existing page through a component. Either way, every page that renders posts must build as static.
+- Posts may render on their own route or inside an existing page through a component, and each post may also have its own page (A page per post, below). Either way, every page that renders posts must build as static.
 - Render posts in the order returned (newest first).
 - Render each post's body in order:
   - **paragraph:** the text rendered with FormattedText (Paragraph formatting, below), inside an element styled with white-space: pre-line, so the site owner's line breaks show
@@ -46,6 +47,60 @@ export function getPosts() {
 - Post images need only the base remotePatterns entries (`client-website.md` → Images).
 - Styling and placement belong to each website, apart from the two functional styles above: white-space: pre-line on paragraphs and max-width: 100%; height: auto on images.
 - With no posts (an empty array), render nothing, or a short message the site chooses.
+
+## A page per post
+
+Optional: a site that shows its posts on one page needs none of this. A site that gives each post its own page, with a readable URL to share, puts it at a path of its choice (/blog/[slug], /news/[slug]), recorded in its `docs/site.md`.
+
+There is no route for one post. The page finds its post in the posts list, which getPosts() already fetches and caches under the posts tag, so the revalidate route refreshes post pages with no change.
+
+src/app/_lib/getPost.js:
+
+```js
+// One of this website's published posts, by its slug, or null when there is none. Server
+// Components only.
+import { getPosts } from "./getPosts";
+
+export async function getPost(slug) {
+  const posts = await getPosts();
+  return posts.find((post) => post.slug === slug) ?? null;
+}
+```
+
+src/app/blog/[slug]/page.js (with the site's own path):
+
+```js
+// One post's own page, by its slug.
+import { notFound } from "next/navigation";
+import { getPosts } from "../../_lib/getPosts";
+import { getPost } from "../../_lib/getPost";
+
+// Every published post's page builds as static. A post published after the build renders on
+// its first visit and is then cached, like the rest.
+export async function generateStaticParams() {
+  const posts = await getPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+// The header as the page title, so a shared link's preview shows it.
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+  return post?.header ? { title: post.header } : {};
+}
+
+export default async function PostPage({ params }) {
+  const { slug } = await params;
+  const post = await getPost(slug);
+  if (!post) notFound();
+  // Render the post as in Rendering posts.
+}
+```
+
+- params is a promise in Next.js 16, so it is awaited.
+- getPost() returns null for a slug that isn't a published post on this website (a made-up slug, a draft, a deleted post, or any post while posts are turned off), and the page calls notFound() from next/navigation, so the site's 404 page shows, as a gallery page does.
+- generateStaticParams() lets Next.js's default dynamicParams render a post published after the build on its first visit, so the page still builds as static (● in the next build output, not ƒ).
+- Link each post from the list with next/link: href={`/blog/${post.slug}`}, with the site's own path.
 
 ## Paragraph formatting
 
@@ -253,7 +308,7 @@ Every `<a>` in the Output column also carries `target="_blank" rel="noopener nor
 
 ## Testing
 
-Beside `client-website.md` → Testing, create posts in the CMS dashboard and check that they render. Cover paragraphs only, paragraphs and images interleaved, line breaks, formatting (bold, italic, bold-italic, a link, a link inside bold, and markup left as typed such as `5 * 3 * 2`), empty optional fields, and a draft post, which must not appear. Creating, editing, drafting, publishing and deleting a post each show on the live site within moments.
+Beside `client-website.md` → Testing, create posts in the CMS dashboard and check that they render. Cover paragraphs only, paragraphs and images interleaved, line breaks, formatting (bold, italic, bold-italic, a link, a link inside bold, and markup left as typed such as `5 * 3 * 2`), empty optional fields, and a draft post, which must not appear. Creating, editing, drafting, publishing and deleting a post each show on the live site within moments. Where posts have their own pages: open a post's page by its slug, edit its header and check the URL is unchanged, draft it and check its page shows the 404, and check a made-up slug shows the 404.
 
 ## Done when
 
@@ -261,4 +316,5 @@ Beside `client-website.md` → Testing, create posts in the CMS dashboard and ch
 - Posts render newest first; each body renders in order; paragraphs keep line breaks; formatting renders as in the rendering examples, with no raw HTML; images use next/image; empty optional fields don't render
 - npm test passes: getPosts() and FormattedText (every row of the rendering examples) are tested
 - Every page that renders posts builds as static
+- Where posts have their own pages: they are at /<path>/[slug], find their post with getPost(), link by slug, and call notFound() on null; npm test covers getPost() for a slug it finds and one it doesn't (null)
 - The CMS operator's live test passes for posts
