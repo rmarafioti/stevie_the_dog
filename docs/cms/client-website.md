@@ -4,6 +4,7 @@ How a client website shows the content its site owner manages in the Headless CM
 
 - `posts.md`: the site owner's posts, and paragraph formatting.
 - `galleries.md`: photo galleries.
+- `contact.md`: the contact form, sent through the CMS to the site owners.
 
 This folder, `docs/cms/`, is copied unchanged from the `client-kit` repo into every client website's repo. Never edit it here: a change is made in `client-kit` and arrives as a sync pull request, and CI fails when this folder differs from `client-kit`. To ask for a change, tell Rich: the backend session makes it in `client-kit`. What is particular to this website (its name, pages, design, quirks, its media folder and which abilities it uses) is in `docs/site.md`.
 
@@ -30,7 +31,7 @@ Add the three names, with empty values, to .env.example so the next developer kn
 
 ## The API this website calls
 
-Every route is a GET under {HEADLESS_CMS_API_URL}/api/public/, with the header Authorization: Bearer `<HEADLESS_CMS_API_KEY>`. No cookie and no other headers. Each ability's doc gives its route and the shape it returns.
+Every content route is a GET under {HEADLESS_CMS_API_URL}/api/public/, with the header Authorization: Bearer `<HEADLESS_CMS_API_KEY>`. No cookie and no other headers. Each ability's doc gives its route and the shape it returns. The contact form is the one POST, with its own headers and limits (`contact.md`).
 
 Success: 200 { "data": ... }.
 
@@ -39,7 +40,7 @@ Images are uploaded by the site owner to 3DWD's Cloudinary account, into this we
 Errors arrive as { "error": { "message": "..." } }:
 
 - 401 "Invalid API key." means the key is missing or wrong, or the website has been deactivated in the CMS.
-- 429 "Too many requests. Please try again later." means a CMS rate limit was hit: more than 30 calls a minute with this website's key (every public route counts together), or more than 10 calls a minute with a wrong key from one address. cmsFetch() throws on it like any other error, so the last good page stays up.
+- 429 "Too many requests. Please try again later." means a CMS rate limit was hit: more than 30 calls a minute with this website's key (every content route counts together; the contact form has its own limit), or more than 10 calls a minute with a wrong key from one address. cmsFetch() throws on it like any other error, so the last good page stays up.
 - 500 "Something went wrong, please try again." means a server error.
 - A route that fetches one item by its code answers 404 when there is none; its ability's doc gives the message.
 
